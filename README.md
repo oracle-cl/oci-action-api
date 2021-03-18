@@ -12,19 +12,19 @@ This is a sample REST API written in Go to execute compute actions in Oracle Clo
 ## Installation Steps
 
 1. Build the image
-  ```
-  docker build -t davejfranco/oci-action-api .
-  ```
+    ```
+    docker build -t davejfranco/oci-action-api .
+    ```
 2. Login and push into your registry
-  ```
-  docker login
-  docker push davejfranco/oci-action-api
-  ```
+    ```
+    docker login
+    docker push davejfranco/oci-action-api
+    ```
 
 3. Create K8s secret with your docker login credentials
-  ```
-  kubectl create secret generic dockerhub --from-file=.dockerconfigjson=/home/dave/.docker/config.json --type=kubernetes.io/dockerconfigjson
-  ```
+    ```
+    kubectl create secret generic dockerhub --from-file=.dockerconfigjson=/home/dave/.docker/config.json --type=kubernetes.io/dockerconfigjson
+    ```
 4. Create credential files.
 - Create user and group and then apply the following policy to the group
   ```
@@ -51,15 +51,15 @@ This is a sample REST API written in Go to execute compute actions in Oracle Clo
   For more details on oci-cli follow this link: [https://docs.oracle.com/es-ww/iaas/Content/API/SDKDocs/cliinstall.htm](https://)
 
 5. Create configmaps with the config and private key files
-  ```
-  kubectl create configmap oci-config  --from-file=config
-  kubectl create configmap oci-priv-key  --from-file=oci_api_key.pem
-  ```
+    ```
+    kubectl create configmap oci-config  --from-file=config
+    kubectl create configmap oci-priv-key  --from-file=oci_api_key.pem
+    ```
 
 6. Modify container image in kubefile.yaml with the name of your container image and create resources
-  ```
-  kubectl create -f kubefile
-  ```
+    ```
+      kubectl create -f kubefile
+    ```
 ## HowTo
 Once the resources are created, the microservice will scan comparments, regions and vms; it takes around a min depends on how many regions and compartments to be ready.
 
