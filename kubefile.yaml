@@ -1,0 +1,52 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oci-action-api
+  labels:
+    app: oci-action-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oci-action-api
+  template:
+    metadata:
+      labels:
+        app: oci-action-api
+    spec:
+      containers:
+      - name: app
+        image: davejfranco/oci-action-api
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config-volume
+          mountPath: /root/config
+          subPath: config
+        - name: oci-key
+          mountPath: /root/oci_api_key.pem
+          subPath: oci_api_key.pem
+      volumes:
+        - name: config-volume
+          configMap:
+            name: oci-config
+        - name: oci-key
+          configMap:
+            name: oci-priv-key
+      imagePullSecrets:
+      - name: dockerhub
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: oci-api-service
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: oci-action-api
+  type: LoadBalancer
