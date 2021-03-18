@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -181,9 +182,11 @@ func (c *Connection) Action(action string, vm VM) error {
 
 	switch action {
 	case "stop":
-		action = "softstop"
+		action = strings.ToUpper("softstop")
 	case "restart":
-		action = "softrestart"
+		action = strings.ToUpper("softrestart")
+	case "start":
+		action = strings.ToUpper(action)
 	}
 
 	newconfig := c.ConfigGen(vm.Region)
@@ -194,19 +197,24 @@ func (c *Connection) Action(action string, vm VM) error {
 
 	req := core.InstanceActionRequest{
 		InstanceId: common.String(vm.OCID),
-		Action:     core.InstanceActionActionEnum(strings.ToUpper(action)),
+		Action:     core.InstanceActionActionEnum(action),
 	}
 	_, err = client.InstanceAction(context.Background(), req)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
 type VMHandlers struct {
 	sync.Mutex
 	store map[string]VM
+	conn  Connection
+}
+
+type vmaction struct {
+	Name   string `json:"name"`
+	Action string `json:"action"`
 }
 
 func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
@@ -225,38 +233,109 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.String(), "/")
+	if len(parts) != 3 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	server, ok := h.store[parts[2]]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	jsonBytes, _ := json.Marshal(server)
+	w.Header().Add("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
+
 }
 
 func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
 
+	ct := r.Header.Get("content-type")
+	if ct != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
+		return
+	}
+
+	var vm vmaction
+	err = json.Unmarshal(bodyBytes, &vm)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
 	h.Lock()
 	defer h.Unlock()
+	server, ok := h.store[vm.Name]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	err = h.conn.Action(vm.Action, server)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		log.Fatal(err)
+		return
+	}
+	jsonBytes, _ := json.Marshal(server)
+	w.Header().Add("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
 
 }
 
 func newVmHandlers() *VMHandlers {
+	current, _ := os.Getwd()
+	config, err := common.ConfigurationProviderFromFile(current+"/config", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//initialize connection to OCI
+	newconn := Connection{config}
+	log.Print("Scanning OCI Tenant with provided config")
+	//Remember to implement periodic Sync
+	compartments := newconn.GetAllCompartments()
+	log.Printf("%v comparments found", len(compartments))
+	if err != nil {
+		log.Fatal(err)
+	}
+	regions, err := newconn.GetSuscribedRegions()
+	log.Printf("Subscribed Regions: %v", regions)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	vms := newconn.ScanVms(compartments, regions)
+	log.Printf("%v virtual machines found", len(vms))
+	log.Print("Done Scanning")
 	return &VMHandlers{
-		store: map[string]VM{},
+		store: vms,
+		conn:  newconn,
 	}
 }
 
 func main() {
 
-	/* current, _ := os.Getwd()
-	config, err := common.ConfigurationProviderFromFile(current+"/config", "")
-
-	check(err)
-	conn := Connection{config}
-	compartments := conn.GetAllCompartments()
-	check(err)
-	regions, err := conn.GetSuscribedRegions()
-	check(err) */
-	/* VMHandlers := newVmHandlers()
-
-	http.HandleFunc("/oci", VMHandlers.Get)
+	VMHandlers := newVmHandlers()
+	http.HandleFunc("/oci/", VMHandlers.Get)
+	http.HandleFunc("/oci", VMHandlers.Post)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
-	} */
+	}
 
 }
