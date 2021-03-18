@@ -1,15 +1,15 @@
-#OCI Action API
+# OCI Action API
 
 This is a sample REST API written in Go to execute compute actions in Oracle Cloud Infrastructure
 
-##Requirements
+## Requirements
 - A OCI account
 - GO >= go1.16.2
 - Docker >= 20.10.5, build 55c4c88 (Tested in this version, I'm sure will work in older versions ;-) )
 - Kubernetes >= v1.19.7 (Tested in this version, I'm sure will work in older versions ;-) )
 
 
-##Installation Steps
+## Installation Steps
 
 1. Build the image
   ```
@@ -60,15 +60,15 @@ This is a sample REST API written in Go to execute compute actions in Oracle Clo
   ```
   kubectl create -f kubefile
   ```
-##HowTo
+## HowTo
 Once the resources are created, the microservice will scan comparments, regions and vms; it takes around a min depends on how many regions and compartments to be ready.
 
-###Find Compute Instance by Name
+### Find Compute Instance by Name
   ```
   curl -X GET "http://localhost:8080/oci?name=MyVM"
   ```
 
-###Execute action on a given vm name
+### Execute action on a given vm name
   ```
   curl -X POST -H "Content-type: application/json" "http://localhost:8080/oci?name=MyVM&action=start"
   ```
