@@ -212,11 +212,6 @@ type VMHandlers struct {
 	conn  Connection
 }
 
-type vmaction struct {
-	Name   string `json:"name"`
-	Action string `json:"action"`
-}
-
 func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
@@ -233,13 +228,15 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(r.URL.String(), "/")
-	if len(parts) != 3 {
+	query := r.URL.Query()
+
+	name := query.Get("name")
+	if name == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	server, ok := h.store[parts[2]]
+	server, ok := h.store[name]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -253,11 +250,13 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
-	bodyBytes, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+	query := r.URL.Query()
+
+	name := query.Get("name")
+	action := query.Get("action")
+	//check if name or action exists
+	if action == "" && name == "" {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -268,28 +267,21 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var vm vmaction
-	err = json.Unmarshal(bodyBytes, &vm)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
-	}
 	h.Lock()
 	defer h.Unlock()
-	server, ok := h.store[vm.Name]
+	server, ok := h.store[name]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	err = h.conn.Action(vm.Action, server)
+	err := h.conn.Action(action, server)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		log.Fatal(err)
 		return
 	}
-	log.Printf("Action: %v initiate on Server: %v", vm.Action, vm.Name)
+	log.Printf("Action: %v initiate on Server: %v", action, name)
 	jsonBytes, _ := json.Marshal(server)
 	w.Header().Add("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -331,8 +323,7 @@ func newVmHandlers() *VMHandlers {
 func main() {
 
 	VMHandlers := newVmHandlers()
-	http.HandleFunc("/oci/", VMHandlers.Get)
-	http.HandleFunc("/oci", VMHandlers.Post)
+	http.HandleFunc("/oci", VMHandlers.oci)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
