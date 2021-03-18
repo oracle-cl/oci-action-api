@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/oracle/oci-go-sdk/common"
@@ -179,33 +181,29 @@ func (c *Connection) Action(action string, vm VM) error {
 
 	switch action {
 	case "stop":
-		action = "sofstop"
+		action = "softstop"
 	case "restart":
 		action = "softrestart"
 	}
 
-	if region, _ := c.Config.Region(); region != vm.Region {
-
-		newconfig := c.ConfigGen(vm.Region)
-		client, err := core.NewComputeClientWithConfigurationProvider(newconfig)
-		if err != nil {
-			return err
-		}
-
-		req := core.InstanceActionRequest{
-			InstanceId: common.String(vm.OCID),
-			Action:     core.InstanceActionActionEnum(strings.ToUpper(action)),
-		}
-		_, err = client.InstanceAction(context.Background(), req)
-		if err != nil {
-			return err
-		}
-
+	newconfig := c.ConfigGen(vm.Region)
+	client, err := core.NewComputeClientWithConfigurationProvider(newconfig)
+	if err != nil {
+		return err
 	}
+
+	req := core.InstanceActionRequest{
+		InstanceId: common.String(vm.OCID),
+		Action:     core.InstanceActionActionEnum(strings.ToUpper(action)),
+	}
+	_, err = client.InstanceAction(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-/*
 type VMHandlers struct {
 	sync.Mutex
 	store map[string]VM
@@ -235,16 +233,16 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	defer h.Unlock()
 
 }
-*/
-/* func newVmHandlers() *VMHandlers {
+
+func newVmHandlers() *VMHandlers {
 	return &VMHandlers{
 		store: map[string]VM{},
 	}
 }
-*/
+
 func main() {
 
-	current, _ := os.Getwd()
+	/* current, _ := os.Getwd()
 	config, err := common.ConfigurationProviderFromFile(current+"/config", "")
 
 	check(err)
@@ -252,12 +250,7 @@ func main() {
 	compartments := conn.GetAllCompartments()
 	check(err)
 	regions, err := conn.GetSuscribedRegions()
-	check(err)
-
-	servers := conn.ScanVms(compartments, regions)
-	check(err)
-	fmt.Println(servers["vmOps"])
-
+	check(err) */
 	/* VMHandlers := newVmHandlers()
 
 	http.HandleFunc("/oci", VMHandlers.Get)
