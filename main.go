@@ -283,13 +283,13 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = h.conn.Action(vm.Action, server)
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		log.Fatal(err)
 		return
 	}
+	log.Printf("Action: %v initiate on Server: %v", vm.Action, vm.Name)
 	jsonBytes, _ := json.Marshal(server)
 	w.Header().Add("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
