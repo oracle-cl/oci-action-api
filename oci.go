@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -21,20 +22,44 @@ func check(err error) {
 	}
 }
 
+func getPrivKeylocation(configpath string) string {
+	f, err := os.Open(configpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	// Splits on newlines by default.
+	scanner := bufio.NewScanner(f)
+
+	// https://golang.org/pkg/bufio/#Scanner.Scan
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "key_file") {
+			return strings.Split(scanner.Text(), "=")[1]
+		}
+
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return ""
+}
+
 //Find all profiles available in the default config file
-func findProfiles() []string {
+func findProfiles(configLocation string) []string {
 
 	var profiles []string
 
-	current, _ := os.Getwd()
-	config, err := ioutil.ReadFile(current + "/config")
+	config, err := ioutil.ReadFile(configLocation)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	text := string(config)
-	//fmt.Println(text)
+
 	re := regexp.MustCompile(`\[(.*?)\]`)
+
 	matches := re.FindAllStringSubmatch(text, -1)
 	for _, p := range matches {
 		profiles = append(profiles, p[1])
@@ -43,41 +68,45 @@ func findProfiles() []string {
 	return profiles
 }
 
-type Connection struct {
-	Config common.ConfigurationProvider
+type connection struct {
+	config common.ConfigurationProvider
 }
 
 //ConfigGen generates a new config from the defult config with a new region
-func (c *Connection) ConfigGen(region string) common.ConfigurationProvider {
+func (c *connection) ConfigGen(region string) common.ConfigurationProvider {
 
+	//Find key and read it
 	pwd, err := os.Getwd()
 	check(err)
-	keylocation := pwd + "/oci_api_key.pem"
+	keylocation := getPrivKeylocation(pwd + "/config")
+	if keylocation == "" {
+		log.Fatal("No Keyfile location found in config")
+	}
 	key, err := ioutil.ReadFile(keylocation)
 	check(err)
 
 	//Config Details
-	tenancyID, err := c.Config.TenancyOCID()
+	tenancyID, err := c.config.TenancyOCID()
 	check(err)
-	userID, err := c.Config.UserOCID()
+	userID, err := c.config.UserOCID()
 	check(err)
-	fingerprint, err := c.Config.KeyFingerprint()
+	fingerprint, err := c.config.KeyFingerprint()
 	check(err)
 
 	return common.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, string(key), common.String(""))
 }
 
-func (c *Connection) GetSuscribedRegions() ([]string, error) {
+func (c *connection) GetSuscribedRegions() ([]string, error) {
 
 	var susbcribedRegions []string
 
-	tenancyID, err := c.Config.TenancyOCID()
+	tenancyID, err := c.config.TenancyOCID()
 	if err != nil {
 		return []string{}, err
 	}
 	req := identity.ListRegionSubscriptionsRequest{TenancyId: common.String(tenancyID)}
 
-	client, err := identity.NewIdentityClientWithConfigurationProvider(c.Config)
+	client, err := identity.NewIdentityClientWithConfigurationProvider(c.config)
 	if err != nil {
 		return []string{}, err
 	}
@@ -95,11 +124,11 @@ func (c *Connection) GetSuscribedRegions() ([]string, error) {
 }
 
 //GetCompartments Scans all compartments in tenancy
-func (c *Connection) GetAllCompartments() []string {
+func (c *connection) GetAllCompartments() []string {
 
 	var compartmentIDs []string
 	// The OCID of the tenancy containing the compartment.
-	tenancyID, err := c.Config.TenancyOCID()
+	tenancyID, err := c.config.TenancyOCID()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -112,7 +141,7 @@ func (c *Connection) GetAllCompartments() []string {
 		CompartmentIdInSubtree: &subtree,
 		LifecycleState:         "ACTIVE",
 	}
-	client, err := identity.NewIdentityClientWithConfigurationProvider(c.Config)
+	client, err := identity.NewIdentityClientWithConfigurationProvider(c.config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -131,15 +160,16 @@ type VM struct {
 	OCID          string `json:"ocid"`
 	CompartmentID string `json:"compartment_id"`
 	Region        string `json:"region"`
+	Status        string `json:"status"`
 }
 
 //ScanVms will go throug all regions and compartments to get Active Compute instances
-func (c *Connection) ScanVms(compartments, regions []string) map[string]VM {
+func (c *connection) ScanVms(compartments, regions []string) map[string]VM {
 
 	servers := make(map[string]VM)
 	//regions := GetSuscribedRegions(c)
-	for _, v := range regions {
-		config := c.ConfigGen(v)
+	for _, r := range regions {
+		config := c.ConfigGen(r)
 		client, err := core.NewComputeClientWithConfigurationProvider(config)
 		if err != nil {
 			log.Fatal(err)
@@ -174,7 +204,7 @@ func (c *Connection) ScanVms(compartments, regions []string) map[string]VM {
 
 				for _, vm := range resp.Items {
 					if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
-						servers[*vm.DisplayName] = VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, v}
+						servers[*vm.DisplayName] = VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, r, string(vm.LifecycleState)}
 					}
 				}
 
@@ -192,7 +222,7 @@ func (c *Connection) ScanVms(compartments, regions []string) map[string]VM {
 }
 
 //Action given by vm and action
-func (c *Connection) Action(action string, vm VM) error {
+func (c *connection) Action(action string, vm VM) error {
 
 	//Check if action is recognized
 	if action != "start" && action != "stop" && action != "restart" {
@@ -223,4 +253,47 @@ func (c *Connection) Action(action string, vm VM) error {
 		return err
 	}
 	return nil
+}
+
+func scanAllProfiles() map[string]map[string]VM {
+
+	current, _ := os.Getwd()
+	cfgfile := current + "/config"
+	profiles := findProfiles(cfgfile)
+	fmt.Println(profiles)
+
+	profileSrvs := make(map[string]map[string]VM)
+
+	//Star scaning from every profile in the config file
+	for _, p := range profiles {
+		cfg, err := common.ConfigurationProviderFromFileWithProfile(cfgfile, p, "")
+		check(err)
+
+		//Create connection
+		conn := connection{cfg}
+		log.Printf("Scaning Tenant in profile: %v", p)
+
+		//Get all compartments in tenancy
+		compartments := conn.GetAllCompartments()
+		log.Printf("%v comparments found", len(compartments))
+
+		//Get all suscribed regions
+		regions, err := conn.GetSuscribedRegions()
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Subscribed Regions: %v", regions)
+		servers := conn.ScanVms(compartments, regions)
+		profileSrvs[p] = servers
+
+	}
+
+	return profileSrvs
+
+}
+func main() {
+
+	all := scanAllProfiles()
+	fmt.Println(all)
+
 }
