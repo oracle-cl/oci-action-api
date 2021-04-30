@@ -9,21 +9,59 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/oracle/oci-go-sdk/common"
-	"github.com/oracle/oci-go-sdk/core"
 	"github.com/oracle/oci-go-sdk/identity"
 )
 
+//Helper Functions
 func check(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func getPrivKeylocation(configpath string) string {
-	f, err := os.Open(configpath)
+func Find(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+//OCI config file struct
+type config struct {
+	location string
+	profile  string
+}
+
+func (cfg config) profileExist() bool {
+
+	if cfg.profile == "" {
+		return false
+	}
+
+	_, found := Find(cfg.getAllProfiles(), cfg.profile)
+	if found {
+		return true
+	}
+
+	return false
+}
+
+func (cfg *config) defaultProfile() {
+	if cfg.profile == "" {
+		cfg.profile = "DEFAULT"
+	}
+}
+
+func (cfg *config) getPrivKeylocation() string {
+
+	//Check if default profile
+	cfg.defaultProfile()
+
+	f, err := os.Open(cfg.location)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,9 +70,14 @@ func getPrivKeylocation(configpath string) string {
 	// Splits on newlines by default.
 	scanner := bufio.NewScanner(f)
 
+	p := 0
 	// https://golang.org/pkg/bufio/#Scanner.Scan
 	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "key_file") {
+		if strings.Contains(scanner.Text(), cfg.profile) {
+			fmt.Println("Profile found")
+			p++
+		}
+		if strings.Contains(scanner.Text(), "key_file") && p > 0 {
 			return strings.Split(scanner.Text(), "=")[1]
 		}
 
@@ -46,12 +89,12 @@ func getPrivKeylocation(configpath string) string {
 	return ""
 }
 
-//Find all profiles available in the default config file
-func findProfiles(configLocation string) []string {
+//Find all profiles available in the config file
+func (cfg *config) getAllProfiles() []string {
 
 	var profiles []string
 
-	config, err := ioutil.ReadFile(configLocation)
+	config, err := ioutil.ReadFile(cfg.location)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,17 +111,24 @@ func findProfiles(configLocation string) []string {
 	return profiles
 }
 
-type connection struct {
-	config common.ConfigurationProvider
+func (cfg *config) gen() common.ConfigurationProvider {
+
+	//set default profile in case profile is empty
+	cfg.defaultProfile()
+
+	c, err := common.ConfigurationProviderFromFileWithProfile(cfg.location, cfg.profile, "")
+	//Error will raise if default profile cannot be loaded
+	check(err)
+	return c
 }
 
-//ConfigGen generates a new config from the defult config with a new region
-func (c *connection) ConfigGen(region string) common.ConfigurationProvider {
+func (cfg *config) genByRegion(region string) common.ConfigurationProvider {
+
+	//load config
+	cp := cfg.gen()
 
 	//Find key and read it
-	pwd, err := os.Getwd()
-	check(err)
-	keylocation := getPrivKeylocation(pwd + "/config")
+	keylocation := cfg.getPrivKeylocation()
 	if keylocation == "" {
 		log.Fatal("No Keyfile location found in config")
 	}
@@ -86,27 +136,33 @@ func (c *connection) ConfigGen(region string) common.ConfigurationProvider {
 	check(err)
 
 	//Config Details
-	tenancyID, err := c.config.TenancyOCID()
+	tenancyID, err := cp.TenancyOCID()
 	check(err)
-	userID, err := c.config.UserOCID()
+	userID, err := cp.UserOCID()
 	check(err)
-	fingerprint, err := c.config.KeyFingerprint()
+	fingerprint, err := cp.KeyFingerprint()
 	check(err)
 
 	return common.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, string(key), common.String(""))
+
 }
 
-func (c *connection) GetSuscribedRegions() ([]string, error) {
+type connect struct {
+	conn common.ConfigurationProvider
+	config
+}
+
+func (oci *connect) GetSuscribedRegions() ([]string, error) {
 
 	var susbcribedRegions []string
 
-	tenancyID, err := c.config.TenancyOCID()
+	tenancyID, err := oci.conn.TenancyOCID()
 	if err != nil {
 		return []string{}, err
 	}
 	req := identity.ListRegionSubscriptionsRequest{TenancyId: common.String(tenancyID)}
 
-	client, err := identity.NewIdentityClientWithConfigurationProvider(c.config)
+	client, err := identity.NewIdentityClientWithConfigurationProvider(oci.conn)
 	if err != nil {
 		return []string{}, err
 	}
@@ -124,11 +180,11 @@ func (c *connection) GetSuscribedRegions() ([]string, error) {
 }
 
 //GetCompartments Scans all compartments in tenancy
-func (c *connection) GetAllCompartments() []string {
+func (oci *connect) GetAllCompartments() []string {
 
 	var compartmentIDs []string
 	// The OCID of the tenancy containing the compartment.
-	tenancyID, err := c.config.TenancyOCID()
+	tenancyID, err := oci.conn.TenancyOCID()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -141,7 +197,7 @@ func (c *connection) GetAllCompartments() []string {
 		CompartmentIdInSubtree: &subtree,
 		LifecycleState:         "ACTIVE",
 	}
-	client, err := identity.NewIdentityClientWithConfigurationProvider(c.config)
+	client, err := identity.NewIdentityClientWithConfigurationProvider(oci.conn)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -161,15 +217,20 @@ type VM struct {
 	CompartmentID string `json:"compartment_id"`
 	Region        string `json:"region"`
 	Status        string `json:"status"`
+	Profile       string `json:"profile"`
 }
 
 //ScanVms will go throug all regions and compartments to get Active Compute instances
-func (c *connection) ScanVms(compartments, regions []string) map[string]VM {
+/* func (oci *connect) ScanVms() map[string]VM {
 
 	servers := make(map[string]VM)
 	//regions := GetSuscribedRegions(c)
+	compartments := oci.GetAllCompartments()
+	regions, err := oci.GetSuscribedRegions()
+	check(err)
+
 	for _, r := range regions {
-		config := c.ConfigGen(r)
+		//config := c.ConfigGen(r)
 		client, err := core.NewComputeClientWithConfigurationProvider(config)
 		if err != nil {
 			log.Fatal(err)
@@ -291,9 +352,13 @@ func scanAllProfiles() map[string]map[string]VM {
 	return profileSrvs
 
 }
+*/
+
 func main() {
 
-	all := scanAllProfiles()
-	fmt.Println(all)
+	cfg := config{
+		location: "/home/dave/code/oci-action-api/config",
+	}
 
+	fmt.Println(cfg.getPrivKeylocation())
 }
