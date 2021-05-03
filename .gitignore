@@ -1,3 +1,4 @@
 config
 oci_api_key.pem
 test
+workspace.code-workspace
