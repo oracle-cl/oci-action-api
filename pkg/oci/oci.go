@@ -219,18 +219,17 @@ func GetAllCompartments(conn common.ConfigurationProvider) []string {
 }
 
 //ScanVms will go throug all regions and compartments to get Active Compute instances
-func (cfg *Config) ScanVms() []VM { //map[string]VM {
+func (cfg *Config) ScanVms() []VM {
 
 	conn := cfg.Gen()
 
-	//servers := make(map[string]VM)
 	var servers []VM
 	//regions := GetSuscribedRegions(c)
 	compartments := GetAllCompartments(conn)
 	regions, err := GetSuscribedRegions(conn)
 	check(err)
 
-	log.Println("Start scanning for virtual machines...")
+	log.Printf("Start scanning for virtual machines in profile: %v", cfg.Profile)
 	for _, r := range regions {
 		//config := c.ConfigGen(r)
 		client, err := core.NewComputeClientWithConfigurationProvider(conn)
@@ -328,41 +327,3 @@ func (vm *VM) Action(action string, cfg Config) error {
 	}
 	return nil
 }
-
-/* func scanAllProfiles() map[string]map[string]VM {
-
-	current, _ := os.Getwd()
-	cfgfile := current + "/config"
-	profiles := findProfiles(cfgfile)
-	fmt.Println(profiles)
-
-	profileSrvs := make(map[string]map[string]VM)
-
-	//Star scaning from every profile in the config file
-	for _, p := range profiles {
-		cfg, err := common.ConfigurationProviderFromFileWithProfile(cfgfile, p, "")
-		check(err)
-
-		//Create connection
-		conn := connection{cfg}
-		log.Printf("Scaning Tenant in profile: %v", p)
-
-		//Get all compartments in tenancy
-		compartments := conn.GetAllCompartments()
-		log.Printf("%v comparments found", len(compartments))
-
-		//Get all suscribed regions
-		regions, err := conn.GetSuscribedRegions()
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("Subscribed Regions: %v", regions)
-		servers := conn.ScanVms(compartments, regions)
-		profileSrvs[p] = servers
-
-	}
-
-	return profileSrvs
-
-}
-*/
