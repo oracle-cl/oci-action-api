@@ -90,19 +90,31 @@ func (s *Store) Get(vm_name string) VM {
 	return readVM
 
 }
-func (s *Store) Update(vm *VM) {
+func (s *Store) Update(vm *VM) error {
 
+	req := s.Get(vm.DisplayName)
+	if req != (VM{}) {
+		_, err := s.rHandler.JSONSet(vm.DisplayName, ".", vm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-/* func (s *Store) Delete(vm_name string) {
+func (s *Store) Delete(vm_name string) error {
 
 	vm := s.Get(vm_name)
 	if vm != (VM{}) {
-
+		_, err := s.rHandler.JSONDel(vm_name, ".")
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 
 }
-*/
+
 func (s *Store) FlushAll() {
 	s.conn.Do("FLUSHALL")
 }
