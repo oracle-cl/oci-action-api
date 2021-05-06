@@ -49,10 +49,16 @@ func scanAll() {
 		servers := config.ScanVms()
 
 		//Flush all keys
-		db.FlushAll()
+		err = db.FlushAll()
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		//Insert all vms
-		db.Set(&servers)
+		err = db.Set(&servers)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

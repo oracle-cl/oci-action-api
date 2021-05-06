@@ -2,6 +2,8 @@ package oci
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -51,7 +53,7 @@ func (s *Store) Close() {
 	}
 }
 
-func (s *Store) Set(vms *[]VM) {
+func (s *Store) Set(vms *[]VM) error {
 
 	//rh := rejson.NewReJSONHandler()
 	//rh.SetRedigoClient(s.conn)
@@ -61,15 +63,16 @@ func (s *Store) Set(vms *[]VM) {
 
 		res, err := s.rHandler.JSONSet(vm.DisplayName, ".", vm)
 		if err != nil {
-			log.Fatal("Failed to JSONSet")
+			return errors.New("failed to JSONSet")
 		}
 
 		if res.(string) != "OK" {
 			if err != nil {
-				log.Fatalf("Failed to Set %v", vm)
+				return fmt.Errorf("failed to set %v", vm)
 			}
 		}
 	}
+	return nil
 
 }
 
@@ -115,6 +118,10 @@ func (s *Store) Delete(vm_name string) error {
 
 }
 
-func (s *Store) FlushAll() {
-	s.conn.Do("FLUSHALL")
+func (s *Store) FlushAll() error {
+	_, err := s.conn.Do("FLUSHALL")
+	if err != nil {
+		return err
+	}
+	return nil
 }
