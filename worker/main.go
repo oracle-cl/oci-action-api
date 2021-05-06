@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/davejfranco/oci-action-api/pkg/oci"
 )
@@ -11,6 +12,18 @@ const (
 )
 
 func scanAll() {
+
+	rhost := os.Getenv("RHOST")
+	rport := os.Getenv("RPORT")
+
+	//Default redis host and port
+	if rhost == "" {
+		rhost = "localhost"
+	}
+
+	if rport == "" {
+		rport = "6379"
+	}
 
 	log.Println("Start scanning")
 	config := oci.Config{Location: configLocation}
@@ -23,8 +36,8 @@ func scanAll() {
 		config.Profile = profile
 
 		db := oci.Store{
-			Address: "localhost",
-			Port:    "6379",
+			Address: rhost,
+			Port:    rport,
 		}
 
 		//Connect to Database
@@ -34,11 +47,17 @@ func scanAll() {
 		}
 		defer db.Close()
 		servers := config.ScanVms()
+
+		//Flush all keys
+		db.FlushAll()
+
+		//Insert all vms
 		db.Set(&servers)
 	}
 }
 
 func main() {
 
+	//Scan all VMs in all tenants, regions and compartments
 	scanAll()
 }
