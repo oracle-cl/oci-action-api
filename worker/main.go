@@ -32,27 +32,32 @@ func scanAll() {
 	profiles := config.GetAllProfiles()
 	log.Printf("Profiles found in config file: %v", profiles)
 
+	//Database object
+	db := oci.Store{
+		Address: rhost,
+		Port:    rport,
+	}
+
+	//Connect to Database
+	err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//Flush database - I should manage this in a more fancy way
+	log.Println("flushing database cache")
+	err = db.FlushAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//Close connection at the end
+	defer db.Close()
+
 	for _, profile := range profiles {
 		config.Profile = profile
 
-		db := oci.Store{
-			Address: rhost,
-			Port:    rport,
-		}
-
-		//Connect to Database
-		err := db.Connect()
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer db.Close()
 		servers := config.ScanVms()
-
-		//Flush all keys
-		err = db.FlushAll()
-		if err != nil {
-			log.Fatal(err)
-		}
 
 		//Insert all vms
 		err = db.Set(&servers)
@@ -60,6 +65,7 @@ func scanAll() {
 			log.Fatal(err)
 		}
 	}
+
 }
 
 func main() {
