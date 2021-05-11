@@ -39,12 +39,6 @@ func (s *Store) Connect() error {
 	return nil
 }
 
-/* func (s *Store) redisHandler() *rejson.Handler {
-
-	rh := rejson.NewReJSONHandler()
-	rh.SetRedigoClient(s.conn)
-	return rh
-} */
 func (s *Store) Close() {
 
 	err := s.conn.Close()
@@ -54,10 +48,6 @@ func (s *Store) Close() {
 }
 
 func (s *Store) Set(vms *[]VM) error {
-
-	//rh := rejson.NewReJSONHandler()
-	//rh.SetRedigoClient(s.conn)
-	//rh := s.redisHandler()
 
 	for _, vm := range *vms {
 
@@ -77,9 +67,6 @@ func (s *Store) Set(vms *[]VM) error {
 }
 
 func (s *Store) Get(vm_name string) VM {
-	//rh := rejson.NewReJSONHandler()
-	//rh.SetRedigoClient(s.conn)
-	//rh := s.redisHandler()
 
 	vmJSON, err := redis.Bytes(s.rHandler.JSONGet(vm_name, "."))
 	if err != nil {
