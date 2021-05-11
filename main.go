@@ -2,15 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"sync"
 
 	"github.com/davejfranco/oci-action-api/pkg/oci"
-	"github.com/oracle/oci-go-sdk/common"
 )
 
 type VMHandlers struct {
@@ -20,6 +17,7 @@ type VMHandlers struct {
 }
 
 func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
+	log.Println("oci handler")
 	switch r.Method {
 	case "GET":
 		h.Get(w, r)
@@ -36,8 +34,8 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 
 func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-
 	name := query.Get("name")
+	log.Println(name)
 	if name == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -66,6 +64,13 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//If Servers is not found in OCI account delete it from DB
+	if server == (oci.VM{}) {
+		w.WriteHeader(http.StatusNotFound)
+		_ = h.db.Delete(name)
+		return
+	}
+
 	err = h.db.Update(&server)
 	if err != nil {
 		log.Fatal(err)
@@ -79,78 +84,66 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
+	/*
+		query := r.URL.Query()
 
-	name := query.Get("name")
-	action := query.Get("action")
-	//check if name or action exists
-	if action == "" && name == "" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
+			name := query.Get("name")
+			action := query.Get("action")
+			//check if name or action exists
+			if action == "" && name == "" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
 
-	ct := r.Header.Get("content-type")
-	if ct != "application/json" {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
-		return
-	}
+			ct := r.Header.Get("content-type")
+			if ct != "application/json" {
+				w.WriteHeader(http.StatusUnsupportedMediaType)
+				w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
+				return
+			}
 
-	h.Lock()
-	defer h.Unlock()
-	server, ok := h.store[name]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	err := h.conn.Action(action, server)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		log.Fatal(err)
-		return
-	}
-	log.Printf("Action: %v initiate on Server: %v", action, name)
-	jsonBytes, _ := json.Marshal(server)
-	w.Header().Add("content-type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonBytes)
+			h.Lock()
+			defer h.Unlock()
+			server, ok := h.store[name]
+			if !ok {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			err := h.conn.Action(action, server)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				log.Fatal(err)
+				return
+			}
+			log.Printf("Action: %v initiate on Server: %v", action, name)
+			jsonBytes, _ := json.Marshal(server)
+			w.Header().Add("content-type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(jsonBytes) */
 
 }
 
 func newVmHandlers() *VMHandlers {
-	current, _ := os.Getwd()
-	config, err := common.ConfigurationProviderFromFile(current+"/config", "")
-	if err != nil {
-		log.Fatal(err)
+
+	cfg := oci.Config{
+		Location: "config",
 	}
 
-	//initialize connection to OCI
-	newconn := connection{config}
-	log.Print("Scanning OCI Tenant with provided config")
-	//Remember to implement periodic Sync
-	compartments := newconn.GetAllCompartments()
-	log.Printf("%v comparments found", len(compartments))
-	if err != nil {
-		log.Fatal(err)
-	}
-	regions, err := newconn.GetSuscribedRegions()
-	log.Printf("Subscribed Regions: %v", regions)
-	if err != nil {
-		log.Fatal(err)
+	str := oci.Store{
+		Address: "localhost",
+		Port:    "6379",
 	}
 
-	vms := newconn.ScanVms(compartments, regions)
-	log.Printf("%v virtual machines found", len(vms))
-	log.Print("Done Scanning")
 	return &VMHandlers{
-		store: vms,
-		conn:  newconn,
+		db:     str,
+		config: cfg,
 	}
 }
 
-/* func main() {
+func main() {
 
+	log.Println("Server Started...")
 	VMHandlers := newVmHandlers()
 	http.HandleFunc("/oci", VMHandlers.oci)
 	err := http.ListenAndServe(":8080", nil)
@@ -158,4 +151,4 @@ func newVmHandlers() *VMHandlers {
 		panic(err)
 	}
 
-} */
+}
