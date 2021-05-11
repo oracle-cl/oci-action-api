@@ -9,13 +9,14 @@ import (
 
 	"sync"
 
+	"github.com/davejfranco/oci-action-api/pkg/oci"
 	"github.com/oracle/oci-go-sdk/common"
 )
 
 type VMHandlers struct {
 	sync.Mutex
-	store map[string]VM
-	conn  Connection
+	db     oci.Store
+	config oci.Config
 }
 
 func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
@@ -42,10 +43,32 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server, ok := h.store[name]
-	if !ok {
+	//Connect to redis
+	err := h.db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//close connection
+	defer h.db.Close()
+
+	//find vm in database
+	vm := h.db.Get(name)
+	if vm == (oci.VM{}) {
 		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+
+	server, err := h.config.GetVM(vm)
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	err = h.db.Update(&server)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	jsonBytes, _ := json.Marshal(server)
@@ -103,7 +126,7 @@ func newVmHandlers() *VMHandlers {
 	}
 
 	//initialize connection to OCI
-	newconn := Connection{config}
+	newconn := connection{config}
 	log.Print("Scanning OCI Tenant with provided config")
 	//Remember to implement periodic Sync
 	compartments := newconn.GetAllCompartments()
