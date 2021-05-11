@@ -150,11 +150,6 @@ func (cfg *Config) GenByRegion(region string) common.ConfigurationProvider {
 
 }
 
-type Connection struct {
-	Conn common.ConfigurationProvider
-	Config
-}
-
 func GetSuscribedRegions(conn common.ConfigurationProvider) ([]string, error) {
 
 	var susbcribedRegions []string
@@ -294,8 +289,44 @@ type VM struct {
 	Profile       string `json:"profile"`
 }
 
+//Get vm
+func (cfg *Config) GetVM(vm VM) (VM, error) {
+
+	//set profile by vm
+	cfg.Profile = vm.Profile
+	conn := cfg.GenByRegion(vm.Region)
+
+	client, err := core.NewComputeClientWithConfigurationProvider(conn)
+	if err != nil {
+		return VM{}, err
+	}
+
+	req := core.ListInstancesRequest{CompartmentId: &vm.CompartmentID}
+	resp, err := client.ListInstances(context.Background(), req)
+	if err != nil {
+		return VM{}, err
+	}
+
+	if len(resp.Items) == 0 {
+		return VM{}, nil
+	}
+
+	//VM
+	server := VM{
+		DisplayName:   *resp.Items[0].DisplayName,
+		CompartmentID: *resp.Items[0].CompartmentId,
+		OCID:          *resp.Items[0].Id,
+		Region:        vm.Region,
+		Status:        string(resp.Items[0].LifecycleState),
+		Profile:       vm.Profile,
+	}
+
+	return server, nil
+
+}
+
 //Action given by vm and action
-func (vm *VM) Action(action string, cfg Config) error {
+func (cfg *Config) Action(action string, vm VM) error {
 
 	//Check if action is recognized
 	if action != "start" && action != "stop" && action != "restart" {
@@ -311,8 +342,8 @@ func (vm *VM) Action(action string, cfg Config) error {
 		action = strings.ToUpper(action)
 	}
 
-	newconfig := cfg.GenByRegion(vm.Region)
-	client, err := core.NewComputeClientWithConfigurationProvider(newconfig)
+	conn := cfg.GenByRegion(vm.Region)
+	client, err := core.NewComputeClientWithConfigurationProvider(conn)
 	if err != nil {
 		return err
 	}
