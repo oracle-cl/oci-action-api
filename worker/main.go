@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/davejfranco/oci-action-api/pkg/oci"
 )
@@ -45,7 +46,7 @@ func scanAll() {
 	}
 
 	//Flush database - I should manage this in a more fancy way
-	log.Println("flushing database cache")
+	log.Println("flushing database cache.")
 	err = db.FlushAll()
 	if err != nil {
 		log.Fatal(err)
@@ -68,8 +69,19 @@ func scanAll() {
 
 }
 
+func init() {
+
+	//init Scan everything
+	scanAll()
+}
+
 func main() {
 
+	ticker := time.NewTicker(24 * time.Hour)
+
 	//Scan all VMs in all tenants, regions and compartments
-	scanAll()
+	for _ = range ticker.C {
+		scanAll()
+	}
+
 }
