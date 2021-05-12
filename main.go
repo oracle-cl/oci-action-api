@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -17,7 +18,6 @@ type VMHandlers struct {
 }
 
 func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
-	log.Println("oci handler")
 	switch r.Method {
 	case "GET":
 		h.Get(w, r)
@@ -41,6 +41,8 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.Lock()
+	defer h.Unlock()
 	//Connect to redis
 	err := h.db.Connect()
 	if err != nil {
@@ -83,44 +85,87 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 
 }
 
+type actionReq struct {
+	Name   string
+	Action string
+}
+
+//Check if action is a valid one
+func (a *actionReq) isvalid() bool {
+
+	switch a.Action {
+	case "start":
+		return true
+	case "stop":
+		return true
+	default:
+		return false
+	}
+
+}
 func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
-	/*
-		query := r.URL.Query()
 
-			name := query.Get("name")
-			action := query.Get("action")
-			//check if name or action exists
-			if action == "" && name == "" {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
+	//{"name":"MyVM", "action":"start"}'
+	var req actionReq
 
-			ct := r.Header.Get("content-type")
-			if ct != "application/json" {
-				w.WriteHeader(http.StatusUnsupportedMediaType)
-				w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
-				return
-			}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-			h.Lock()
-			defer h.Unlock()
-			server, ok := h.store[name]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			err := h.conn.Action(action, server)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
-				log.Fatal(err)
-				return
-			}
-			log.Printf("Action: %v initiate on Server: %v", action, name)
-			jsonBytes, _ := json.Marshal(server)
-			w.Header().Add("content-type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write(jsonBytes) */
+	if req.Name == "" || req.Action == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if !req.isvalid() {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	ct := r.Header.Get("content-type")
+	if ct != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
+		return
+	}
+
+	h.Lock()
+	defer h.Unlock()
+
+	//Connect to redis
+	err = h.db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//close connection
+	defer h.db.Close()
+
+	//find vm in database
+	srv := h.db.Get(req.Name)
+	if srv == (oci.VM{}) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	//set profile
+	h.config.Profile = srv.Profile
+
+	err = h.config.Action(req.Action, srv)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":%v}`, err.Error())))
+		log.Fatal(err)
+		return
+	}
+
+	log.Printf("Action: %v initiate on Server: %v", req.Action, req.Name)
+	//jsonBytes, _ := json.Marshal(srv)
+	w.Header().Add("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf(`{"status":"true","msg":%v}`, "ok")))
 
 }
 
@@ -146,7 +191,7 @@ func main() {
 	log.Println("Server Started...")
 	VMHandlers := newVmHandlers()
 	http.HandleFunc("/oci", VMHandlers.oci)
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		panic(err)
 	}
