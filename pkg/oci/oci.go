@@ -77,7 +77,6 @@ func (cfg *Config) GetPrivKeylocation() string {
 	// https://golang.org/pkg/bufio/#Scanner.Scan
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), cfg.Profile) {
-			fmt.Println("Profile found")
 			p++
 		}
 		if strings.Contains(scanner.Text(), "key_file") && p > 0 {
@@ -226,8 +225,8 @@ func (cfg *Config) ScanVms() []VM {
 
 	log.Printf("Start scanning for virtual machines in profile: %v", cfg.Profile)
 	for _, r := range regions {
-		//config := c.ConfigGen(r)
-		client, err := core.NewComputeClientWithConfigurationProvider(conn)
+		config := cfg.GenByRegion(r)
+		client, err := core.NewComputeClientWithConfigurationProvider(config)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -261,8 +260,8 @@ func (cfg *Config) ScanVms() []VM {
 
 				for _, vm := range resp.Items {
 					if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
-						//servers[*vm.DisplayName] = VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, r, string(vm.LifecycleState), cfg.Profile}
-						servers = append(servers, VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, r, string(vm.LifecycleState), cfg.Profile})
+						servers = append(servers, VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, *vm.Region, string(vm.LifecycleState), cfg.Profile})
+
 					}
 				}
 
@@ -328,6 +327,7 @@ func (cfg *Config) GetVM(vm VM) (VM, error) {
 //Action given by vm and action
 func (cfg *Config) Action(action string, vm VM) error {
 
+	log.Println("Starting action")
 	//Check if action is recognized
 	if action != "start" && action != "stop" && action != "restart" {
 		return fmt.Errorf("unrecognize action: %s,", action)
@@ -342,6 +342,7 @@ func (cfg *Config) Action(action string, vm VM) error {
 		action = strings.ToUpper(action)
 	}
 
+	log.Println("before config")
 	conn := cfg.GenByRegion(vm.Region)
 	client, err := core.NewComputeClientWithConfigurationProvider(conn)
 	if err != nil {
