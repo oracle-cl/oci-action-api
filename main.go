@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"sync"
 
@@ -175,9 +176,22 @@ func newVmHandlers() *VMHandlers {
 		Location: "config",
 	}
 
+	//redis host and ports
+	rhost := os.Getenv("RHOST")
+	rport := os.Getenv("RPORT")
+
+	//Default redis host and port
+	if rhost == "" {
+		rhost = "localhost"
+	}
+
+	if rport == "" {
+		rport = "6379"
+	}
+
 	str := oci.Store{
-		Address: "localhost",
-		Port:    "6379",
+		Address: rhost,
+		Port:    rport,
 	}
 
 	return &VMHandlers{
@@ -191,7 +205,7 @@ func main() {
 	log.Println("Server Started...")
 	VMHandlers := newVmHandlers()
 	http.HandleFunc("/oci", VMHandlers.oci)
-	err := http.ListenAndServe(":8081", nil)
+	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
 	}
