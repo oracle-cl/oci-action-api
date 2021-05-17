@@ -1,0 +1,39 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deploy
+  labels:
+    app: oci-action-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oci-action-worker
+  template:
+    metadata:
+      labels:
+        app: oci-action-worker
+    spec:
+      containers:
+      - name: app
+        image: davejfranco/oci-action-worker
+        envFrom:
+        - configMapRef:
+            name: apienv
+        volumeMounts:
+        - name: config-volume
+          mountPath: /root/config
+          subPath: config
+        - name: oci-key
+          mountPath: /root/oci_api_key.pem
+          subPath: oci_api_key.pem
+      volumes:
+        - name: config-volume
+          configMap:
+            name: oci-config
+        - name: oci-key
+          configMap:
+            name: oci-priv-key
+      imagePullSecrets:
+      - name: ocirsecret

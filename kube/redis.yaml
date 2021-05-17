@@ -1,0 +1,36 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oci-action-db
+  labels:
+    app: oci-action-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oci-action-db
+  template:
+    metadata:
+      labels:
+        app: oci-action-db
+    spec:
+      containers:
+      - name: redis
+        image: redislabs/rejson
+        ports:
+        - containerPort: 3679
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ocidb
+spec:
+  ports:
+    - name: tcp
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app: oci-action-db
+  type: ClusterIP
