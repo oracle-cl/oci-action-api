@@ -11,7 +11,7 @@ LABEL maintainer="Dave Franco"
 RUN apk update && apk add --no-cache git
 
 # Set the current working directory inside the container 
-WORKDIR /code
+WORKDIR /app
 
 # Copy the source from the current directory to the working Directory inside the container 
 COPY . .
@@ -26,10 +26,10 @@ RUN cd worker && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /worker
+WORKDIR /root/
 
 # Copy the Pre-built binary file from the previous stage. Observe we also copied the .env file
-COPY --from=builder /code/worker/main .
+COPY --from=builder /app/worker/main .
 
 #Command to run the executable
 CMD ["./main"]
