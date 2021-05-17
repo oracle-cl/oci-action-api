@@ -14,7 +14,7 @@ metadata:
   name: oci-config
 data:
   config: |
-    [ladmcrs]
+    [myprofile]
     user=ocid1.user.oc1..aaaaaaaaiarn7vrn62bzfvvjbkvhdmihwsfrenw9zve7oexm3b2jm6tbaoja
     fingerprint=ec:94:61:1d:c7:9b:26:40:f2:f1:fa:87:db:21:0a:a1
     key_file=/root/oci_api_key.pem
@@ -27,30 +27,4 @@ metadata:
   name: oci-priv-key
 data:
   oci_api_key.pem: |
-    -----BEGIN RSA PRIVATE KEY-----
-    MIIEowIBAAKCAQEAs63tPdbRoiuPBQ71Vc+sP7P5OxqC7O030iG0NWPdoNcSIT1u
-    F3F0mKjaO4xYe6PoN4K8Sx99xkE3EsqmA9EzGA0kf1XQPztLbaxExelIaI+N219u
-    +dSynDPmM62S7lgHRfDiL7RoJqanxqQo0twu5Q0yGtMkRLD8r2BHtHA+QymL5MLx
-    OoL8UpeZLpTf+V+Kv9s8zW6qXpGupbJBXPqc8EuUy6jIy7crRGHp0clxrfg6xTkL
-    sSGuRLVmcGFboNmHSz8TXSn2nxhKMc0vmWsTGthXAXt5vphTy1PW2kEBTD6KmeqC
-    bJ6xJKVIqjJGr6TsLizdEPHe80ZIvxkYKlfzGQIDAQABAoIBAHrUHgcVEApue+yI
-    UjxMEEMoA+tcbz4J2AwE0E1jLIGkJ654h9jszTkCzNTCV0aGQNuZuqBcMb3SnRRy
-    hdS8MQJzEY0em5JuNV0O06C7na0k3WOmtJWCymqvq+GN+ZCHislMJ0NXP4+Ug8Lu
-    O54RuNkKEUN3LSbsGoDE/5+gz19XJJIUE63fpSNCStnmqL/UpKz9ICZ3xZ7IdC/2
-    hwDBnPgsv31kdPFAYbPF5Zg8kaZVK8eTk+9iLIvmnCMOcDW9Y8cVJBwfIz1sJOyW
-    H/NbE8B0q9iSIH3VWZhBbHknffqw2Vgb0ss715fBPOySIGrhyYiZrMFLYa/pet/e
-    Z7+vc4ECgYEA5UQn6bJr/0WKJzYOQrEpDuKnCAZTcaDhvIn7RdZdb/bEqgGQw8M8
-    8eJNHWjaBbUcsFME3grnFH6o+JVRfRQCAH4qEq2FDOYxzvBsrAEuD3p+mP+wW/7N
-    MyGaboReVj+zz4i9Z6WZZsZ12rnJjH2sp3EdGJwC81XrgVXzTG/vrjECgYEAyKGM
-    6T8xQxn1Vic2m1M12L/0TFhjpemZpL9jFOx0Mf+o8O/jOAuJ0vYwVTkllMn08Ill
-    QpA5Gp20qND5JIHxCwSv3d+7royIjNbhyEmcgjEiK5jzQImG6kz9M66TN73wXkZu
-    YjoYMuKVGPtqDZZq9fGbmLcOhoYY1rp4TgKsUWkCgYBar4nmG6gyUgxilDQx1ye5
-    dpfBSddJ0+xWinG03yUYe5Cw+muLs7dwqiX8oxPSPCB78mqzdbaP2cX2hgG0quxb
-    y4vS1YYSYx+CjoE9zD2u67IVzNWynegG+JzAzGV0UkBKr/jTfaJfD9NgUCrUAoX/
-    uXNb36IfJHZCM4BIVOKGkQKBgGCXZn/lLJJhrPwNZPzi0snHoJYg99io3o+ylME+
-    FbL8oxlcZMhWxcQLQrnFCZLYqFQl0dp6FQP7aT7dXRV2edYUK5dmX7Vpc1RbH9iN
-    mAwWG51hxbsMeyfSaRS4t6feihrZTct8rKnS7HValXR1NomyCHc9qoCZjtvSapkk
-    MFIBAoGBAMly17gpwnBQAOqbVeHaztJ3fLOfEZ5n0wRQGoKrNIQq8osbF3ie65oA
-    hbwUYnP2munuT3qwHNwqC89JTu6Dlx2WvMTxPY/DOOK/wQPoOCM4BTyv4AhKtHgZ
-    JA0ZgmB6854oHjdNq18zNIdPOXZlvRLiRkJfnc2lNbJ+NkFAFrcF
-    -----END RSA PRIVATE KEY-----
+    Private key in here
