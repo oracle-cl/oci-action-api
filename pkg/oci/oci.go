@@ -342,7 +342,6 @@ func (cfg *Config) Action(action string, vm VM) error {
 		action = strings.ToUpper(action)
 	}
 
-	log.Println("before config")
 	conn := cfg.GenByRegion(vm.Region)
 	client, err := core.NewComputeClientWithConfigurationProvider(conn)
 	if err != nil {
