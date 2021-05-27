@@ -260,8 +260,8 @@ func (cfg *Config) ScanVms() []VM {
 
 				for _, vm := range resp.Items {
 					if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
-						servers = append(servers, VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, *vm.Region, string(vm.LifecycleState), cfg.Profile})
-                                                log.Printf("machine added: %v", *vm.DisplayName)
+						servers = append(servers, VM{strings.ToLower(*vm.DisplayName), *vm.Id, *vm.CompartmentId, *vm.Region, string(vm.LifecycleState), cfg.Profile})
+                                                log.Printf("machine added: %v", strings.ToLower(*vm.DisplayName))
 
 					}
 				}

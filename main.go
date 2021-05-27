@@ -35,7 +35,7 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 
 func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	name := query.Get("name")
+	name := strings.ToLower(query.Get("name"))
 	log.Println(name)
 	if name == "" {
 		w.WriteHeader(http.StatusNotFound)
@@ -146,7 +146,7 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	defer h.db.Close()
 
 	//find vm in database
-	srv := h.db.Get(req.Name)
+	srv := h.db.Get(strings.ToLower(req.Name))
 	if srv == (oci.VM{}) {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -158,7 +158,7 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	err = h.config.Action(req.Action, srv)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":%v}`, err.Error())))
+		w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, err.Error())))
 		log.Fatal(err)
 		return
 	}
@@ -167,7 +167,7 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	//jsonBytes, _ := json.Marshal(srv)
 	w.Header().Add("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"status":"true","msg":%v}`, "ok")))
+	w.Write([]byte(fmt.Sprintf(`{"status":"true","msg":"%v"}`, "ok")))
 
 }
 
