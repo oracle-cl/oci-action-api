@@ -60,6 +60,7 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Get server to compare with db
 	server, err := h.config.GetVM(vm)
 	if err != nil {
 		log.Fatal(err)

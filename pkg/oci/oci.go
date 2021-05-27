@@ -300,7 +300,7 @@ func (cfg *Config) GetVM(vm VM) (VM, error) {
 		return VM{}, err
 	}
 
-	req := core.ListInstancesRequest{CompartmentId: &vm.CompartmentID}
+	req := core.ListInstancesRequest{CompartmentId: &vm.CompartmentID, DisplayName: &vm.DisplayName}
 	resp, err := client.ListInstances(context.Background(), req)
 	if err != nil {
 		return VM{}, err
