@@ -261,6 +261,7 @@ func (cfg *Config) ScanVms() []VM {
 				for _, vm := range resp.Items {
 					if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
 						servers = append(servers, VM{*vm.DisplayName, *vm.Id, *vm.CompartmentId, *vm.Region, string(vm.LifecycleState), cfg.Profile})
+                                                log.Printf("machine added: %v", *vm.DisplayName)
 
 					}
 				}
@@ -300,28 +301,25 @@ func (cfg *Config) GetVM(vm VM) (VM, error) {
 		return VM{}, err
 	}
 
-	req := core.ListInstancesRequest{CompartmentId: &vm.CompartmentID, DisplayName: &vm.DisplayName}
-	resp, err := client.ListInstances(context.Background(), req)
+        req := core.GetInstanceRequest{
+		InstanceId:      &vm.OCID,
+	}
+
+	resp, err := client.GetInstance(context.Background(), req)
 	if err != nil {
 		return VM{}, err
 	}
 
-	if len(resp.Items) == 0 {
-		return VM{}, nil
-	}
-
 	//VM
 	server := VM{
-		DisplayName:   *resp.Items[0].DisplayName,
-		CompartmentID: *resp.Items[0].CompartmentId,
-		OCID:          *resp.Items[0].Id,
+		DisplayName:   *resp.DisplayName,
+		CompartmentID: *resp.CompartmentId,
+		OCID:          *resp.Id,
 		Region:        vm.Region,
-		Status:        string(resp.Items[0].LifecycleState),
+		Status:        string(resp.LifecycleState),
 		Profile:       vm.Profile,
 	}
-
 	return server, nil
-
 }
 
 //Action given by vm and action
