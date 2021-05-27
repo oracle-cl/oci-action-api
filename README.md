@@ -84,8 +84,8 @@ It has three components:
 
 7. Modify container image in api.yaml and worker.yaml with the name of your container image and create resources
     ```
-      kubectl create -f /kube/api.ymal
-      kubectl create -f /kube/worker.ymal
+      kubectl create -f /kube/api.yaml
+      kubectl create -f /kube/worker.yaml
     ```
 ## HowTo
 Once the resources are created, the microservice will scan comparments, regions and vms; it takes around a couple of mins depending on how many resources and accounts you have.
