@@ -29,7 +29,7 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write([]byte("method not allowed"))
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "method not allowed")))
 		return
 	}
 }
@@ -40,6 +40,7 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	log.Println(name)
 	if name == "" {
 		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		return
 	}
 
@@ -48,7 +49,10 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	//Connect to redis
 	err := h.db.Connect()
 	if err != nil {
-		log.Fatal(err)
+	        log.Println("Error en db.Connect")
+		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
+                return
 	}
 
 	//close connection
@@ -58,27 +62,33 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	vm := h.db.Get(name)
 	if vm == (oci.VM{}) {
 		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		return
 	}
 
 	//Get server to compare with db
 	server, err := h.config.GetVM(vm)
 	if err != nil {
-		log.Fatal(err)
+	        log.Println("Error en db.Connect")
 		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		return
 	}
 
 	//If Servers is not found in OCI account delete it from DB
 	if server == (oci.VM{}) {
 		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		_ = h.db.Delete(name)
 		return
 	}
 
 	err = h.db.Update(&server)
 	if err != nil {
-		log.Fatal(err)
+	        log.Println("Error en db.Update")
+		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
+                return
 	}
 
 	jsonBytes, _ := json.Marshal(server)
@@ -119,20 +129,22 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 
 	if req.Name == "" || req.Action == "" {
 		w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "bad request")))
 		return
 	}
 
 	if !req.isvalid() {
 		w.WriteHeader(http.StatusBadRequest)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "bad request")))
 		return
 	}
 
-	ct := r.Header.Get("content-type")
-	if ct != "application/json" {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
-		return
-	}
+	//ct := r.Header.Get("content-type")
+	//if ct != "application/json" {
+		//w.WriteHeader(http.StatusUnsupportedMediaType)
+		//w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct)))
+		//return
+	//}
 
 	h.Lock()
 	defer h.Unlock()
@@ -140,7 +152,10 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	//Connect to redis
 	err = h.db.Connect()
 	if err != nil {
-		log.Fatal(err)
+	        log.Println("Error en db.connect redis")
+		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
+                return
 	}
 
 	//close connection
@@ -150,6 +165,7 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	srv := h.db.Get(strings.ToLower(req.Name))
 	if srv == (oci.VM{}) {
 		w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found in db")))
 		return
 	}
 
@@ -159,8 +175,7 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	err = h.config.Action(req.Action, srv)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, err.Error())))
-		log.Fatal(err)
+		w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "Acction Error")))
 		return
 	}
 

@@ -8,7 +8,7 @@ LABEL maintainer="Dave Franco"
 
 # Install git.
 # Git is required for fetching the dependencies.
-RUN apk update && apk add --no-cache git
+RUN apk update && apk add --no-cache git curl
 
 # Set the current working directory inside the container 
 WORKDIR /app
