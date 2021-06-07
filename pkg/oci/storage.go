@@ -50,12 +50,10 @@ func (s *Store) Close() {
 func (s *Store) Set(vms *[]VM) error {
 
 	for _, vm := range *vms {
-
 		res, err := s.rHandler.JSONSet(vm.DisplayName, ".", vm)
 		if err != nil {
 			return errors.New("failed to JSONSet")
 		}
-
 		if res.(string) != "OK" {
 			if err != nil {
 				return fmt.Errorf("failed to set %v", vm)
@@ -63,7 +61,6 @@ func (s *Store) Set(vms *[]VM) error {
 		}
 	}
 	return nil
-
 }
 
 func (s *Store) Get(vm_name string) VM {

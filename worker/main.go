@@ -14,6 +14,7 @@ const (
 
 func scanAll() {
 
+	log.Println("################ Worker Start #############################")
 	rhost := os.Getenv("RHOST")
 	rport := os.Getenv("RPORT")
 
@@ -66,7 +67,7 @@ func scanAll() {
 			log.Fatal(err)
 		}
 	}
-
+	log.Println("################ Worker End #############################")
 }
 
 func init() {

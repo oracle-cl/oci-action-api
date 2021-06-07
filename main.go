@@ -28,7 +28,8 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 		h.Post(w, r)
 		return
 	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "method not allowed")))
 		return
 	}
@@ -37,9 +38,10 @@ func (h *VMHandlers) oci(w http.ResponseWriter, r *http.Request) {
 func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	name := strings.ToLower(query.Get("name"))
-	log.Println(name)
+	log.Println(fmt.Sprintf("Get : %v", name))
 	if name == "" {
-		w.WriteHeader(http.StatusNotFound)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		return
 	}
@@ -50,7 +52,8 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	err := h.db.Connect()
 	if err != nil {
 	        log.Println("Error en db.Connect")
-		w.WriteHeader(http.StatusNotFound)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
                 return
 	}
@@ -61,7 +64,8 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	//find vm in database
 	vm := h.db.Get(name)
 	if vm == (oci.VM{}) {
-		w.WriteHeader(http.StatusNotFound)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		return
 	}
@@ -70,14 +74,16 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	server, err := h.config.GetVM(vm)
 	if err != nil {
 	        log.Println("Error en db.Connect")
-		w.WriteHeader(http.StatusNotFound)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		return
 	}
 
 	//If Servers is not found in OCI account delete it from DB
 	if server == (oci.VM{}) {
-		w.WriteHeader(http.StatusNotFound)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
 		_ = h.db.Delete(name)
 		return
@@ -86,7 +92,8 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 	err = h.db.Update(&server)
 	if err != nil {
 	        log.Println("Error en db.Update")
-		w.WriteHeader(http.StatusNotFound)
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found")))
                 return
 	}
@@ -99,8 +106,9 @@ func (h *VMHandlers) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type actionReq struct {
-	Name   string
-	Action string
+	Name          string
+	Compartment   string
+	Action        string
 }
 
 //Check if action is a valid one
@@ -118,7 +126,7 @@ func (a *actionReq) isvalid() bool {
 }
 func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 
-	//{"name":"MyVM", "action":"start"}'
+	//{"name":"MyVM", "compartment": "root/comp1/comp2", "action":"start"}'
 	var req actionReq
 
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -127,9 +135,10 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(fmt.Sprintf("Post : %v", req.Name))
 	if req.Name == "" || req.Action == "" {
 		w.WriteHeader(http.StatusBadRequest)
-                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "bad request")))
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "bad request null")))
 		return
 	}
 
@@ -166,6 +175,15 @@ func (h *VMHandlers) Post(w http.ResponseWriter, r *http.Request) {
 	if srv == (oci.VM{}) {
 		w.WriteHeader(http.StatusNotFound)
                 w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"%v"}`, "not found in db")))
+		return
+	}
+
+        //validate compartment
+	if strings.ToLower(srv.CompartmentPath) != strings.ToLower(req.Compartment) {
+	        log.Println("Invalid Compartment")
+	        w.Header().Add("content-type", "application/json")
+	        w.WriteHeader(http.StatusOK)
+                w.Write([]byte(fmt.Sprintf(`{"status":"false","msg":"Invalid Compartment"}`)))
 		return
 	}
 

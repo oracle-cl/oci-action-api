@@ -97,8 +97,32 @@ Once the resources are created, the microservice will scan comparments, regions 
 
 ### Execute action on a given vm name
   ```
-  curl -i "http://localhost:8080/oci" -X POST -d '{"name":"wls-1", "action":"stop"}' -H "Content-Type: application/json"
+  curl -i "http://localhost:8080/oci" -X POST -d '{"name":"wls-1", "compartment": "path", "action":"stop"}' "
   ```
   Actions Allowed: start, stop, restart
 
+  compartment must be in the format root/parent/subarent/name
+  for expample:  root/AR/DESA/SM
+
   Note: both stop and restart will execute softstop and softrestart respectively 
+
+## Troubleshooting
+
+### Logs on POD worker
+  Make sure the process end with message:
+  "################ Worker End #############################"
+
+  Make sure the machines are added
+
+### Inside POD oci-action-db
+  Look at the values on the redis db with
+  ```
+  redis-cli
+  KEY *
+  DUMP <machine-name>
+  ```
+
+### Logs on POD
+  On each execution for query or action
+
+   

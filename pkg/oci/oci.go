@@ -179,9 +179,9 @@ func GetSuscribedRegions(conn common.ConfigurationProvider) ([]string, error) {
 }
 
 //GetCompartments Scans all compartments in tenancy
-func GetAllCompartments(conn common.ConfigurationProvider) []string {
+func GetAllCompartments(conn common.ConfigurationProvider) []COMPA {
 
-	var compartmentIDs []string
+	var compartmentIDs []COMPA
 	// The OCID of the tenancy containing the compartment.
 	tenancyID, err := conn.TenancyOCID()
 	if err != nil {
@@ -205,11 +205,24 @@ func GetAllCompartments(conn common.ConfigurationProvider) []string {
 	response, _ := client.ListCompartments(context.Background(), req)
 
 	for _, v := range response.Items {
-		compartmentIDs = append(compartmentIDs, *v.Id)
+	        log.Printf("compartment %v found", *v.Name)
+		compartmentIDs = append(compartmentIDs, COMPA{ *v.Id, *v.Name, *v.CompartmentId,tenancyID})
 	}
 
 	log.Printf("%v compartments found", len(compartmentIDs))
 	return compartmentIDs
+}
+
+func GetPath( c []COMPA, ocid string) string {
+        if c[0].TenancyID == ocid {
+                return "root"
+        }
+	for _, item := range c {
+		if item.CompartmentID == ocid {
+			return GetPath(c,item.CompartmentParent) + "/" + item.CompartmentName
+		}
+	}
+        return "error"
 }
 
 //ScanVms will go throug all regions and compartments to get Active Compute instances
@@ -252,7 +265,7 @@ func (cfg *Config) ScanVms() []VM {
 			},
 		}
 		for _, cid := range compartments {
-			req := core.ListInstancesRequest{CompartmentId: common.String(cid), RequestMetadata: requestMetadata}
+			req := core.ListInstancesRequest{CompartmentId: common.String(cid.CompartmentID), RequestMetadata: requestMetadata}
 			for resp, err := listComputeFunc(req); ; resp, err = listComputeFunc(req) {
 				if err != nil {
 					log.Fatal(err)
@@ -260,8 +273,8 @@ func (cfg *Config) ScanVms() []VM {
 
 				for _, vm := range resp.Items {
 					if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
-						servers = append(servers, VM{strings.ToLower(*vm.DisplayName), *vm.Id, *vm.CompartmentId, *vm.Region, string(vm.LifecycleState), cfg.Profile})
-                                                log.Printf("machine added: %v", strings.ToLower(*vm.DisplayName))
+						servers = append(servers, VM{strings.ToLower(*vm.DisplayName), *vm.Id, *vm.CompartmentId, cid.CompartmentName, GetPath( compartments, *vm.CompartmentId), *vm.Region, string(vm.LifecycleState), cfg.Profile})
+                                                log.Printf("machine added: %v comp:%v", strings.ToLower(*vm.DisplayName), cid.CompartmentName)
 
 					}
 				}
@@ -281,12 +294,20 @@ func (cfg *Config) ScanVms() []VM {
 }
 
 type VM struct {
-	DisplayName   string `json:"name"`
-	OCID          string `json:"ocid"`
-	CompartmentID string `json:"compartment_id"`
-	Region        string `json:"region"`
-	Status        string `json:"status"`
-	Profile       string `json:"profile"`
+	DisplayName     string `json:"name"`
+	OCID            string `json:"ocid"`
+	CompartmentID   string `json:"compartment_id"`
+	CompartmentName string `json:"compartment_name"`
+	CompartmentPath string `json:"compartment_path"`
+	Region          string `json:"region"`
+	Status          string `json:"status"`
+	Profile         string `json:"profile"`
+}
+type COMPA struct {
+	CompartmentID     string `json:"compartment_id"`
+	CompartmentName   string `json:"compartment_name"`
+	CompartmentParent string `json:"compartment_parent"`
+	TenancyID         string `json:"tenancy_id"`
 }
 
 //Get vm
@@ -314,6 +335,8 @@ func (cfg *Config) GetVM(vm VM) (VM, error) {
 	server := VM{
 		DisplayName:   *resp.DisplayName,
 		CompartmentID: *resp.CompartmentId,
+		CompartmentName: vm.CompartmentName,
+		CompartmentPath: vm.CompartmentPath,
 		OCID:          *resp.Id,
 		Region:        vm.Region,
 		Status:        string(resp.LifecycleState),
@@ -325,7 +348,7 @@ func (cfg *Config) GetVM(vm VM) (VM, error) {
 //Action given by vm and action
 func (cfg *Config) Action(action string, vm VM) error {
 
-	log.Println("Starting action")
+	log.Printf("Starting action %v on %v", action, vm.DisplayName)
 	//Check if action is recognized
 	if action != "start" && action != "stop" && action != "restart" {
 		return fmt.Errorf("unrecognize action: %s,", action)
