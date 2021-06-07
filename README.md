@@ -110,7 +110,9 @@ Once the resources are created, the microservice will scan comparments, regions 
 
 ### Logs on POD worker
   Make sure the process end with message:
+  ```
   "################ Worker End #############################"
+  ```
 
   Make sure the machines are added
 
