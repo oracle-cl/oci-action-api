@@ -124,7 +124,7 @@ Once the resources are created, the microservice will scan comparments, regions 
   DUMP <machine-name>
   ```
 
-### Logs on POD
+### Logs on POD api
   On each execution for query or action
 
    
