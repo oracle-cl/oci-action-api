@@ -202,12 +202,14 @@ func GetAllCompartments(conn common.ConfigurationProvider) []COMPA {
 	}
 
 	//List Compartments
-	response, _ := client.ListCompartments(context.Background(), req)
-
-	for _, v := range response.Items {
-	        log.Printf("compartment %v found", *v.Name)
-		compartmentIDs = append(compartmentIDs, COMPA{ *v.Id, *v.Name, *v.CompartmentId,tenancyID})
-	}
+        for {
+           response, _ := client.ListCompartments(context.Background(), req)
+	   for _, v := range response.Items {
+                log.Printf("compartment %v %v found parent %v", *v.Name, *v.Id, *v.CompartmentId)
+	        compartmentIDs = append(compartmentIDs, COMPA{ *v.Id, *v.Name, *v.CompartmentId,tenancyID})
+	   }
+           if response.OpcNextPage != nil { req.Page = response.OpcNextPage } else { break }
+        }
 
 	log.Printf("%v compartments found", len(compartmentIDs))
 	return compartmentIDs
@@ -222,6 +224,7 @@ func GetPath( c []COMPA, ocid string) string {
 			return GetPath(c,item.CompartmentParent) + "/" + item.CompartmentName
 		}
 	}
+	log.Printf("ERROR: compartment not found %v", ocid)
         return "error"
 }
 
@@ -265,28 +268,20 @@ func (cfg *Config) ScanVms() []VM {
 			},
 		}
 		for _, cid := range compartments {
-			req := core.ListInstancesRequest{CompartmentId: common.String(cid.CompartmentID), RequestMetadata: requestMetadata}
-			for resp, err := listComputeFunc(req); ; resp, err = listComputeFunc(req) {
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				for _, vm := range resp.Items {
-					if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
-						servers = append(servers, VM{strings.ToLower(*vm.DisplayName), *vm.Id, *vm.CompartmentId, cid.CompartmentName, GetPath( compartments, *vm.CompartmentId), *vm.Region, string(vm.LifecycleState), cfg.Profile})
-                                                log.Printf("machine added: %v comp:%v", strings.ToLower(*vm.DisplayName), cid.CompartmentName)
-
-					}
-				}
-
-				if resp.OpcNextPage != nil {
-					// if there are more items in next page, fetch items from next page
-					req.Page = resp.OpcNextPage
-				} else {
-					// no more result, break the loop
-					break
-				}
+		  req := core.ListInstancesRequest{CompartmentId: common.String(cid.CompartmentID), RequestMetadata: requestMetadata}
+		  for resp, err := listComputeFunc(req); ; resp, err = listComputeFunc(req) {
+		  if err != nil {
+			log.Fatal(err)
+		  }
+		  for _, vm := range resp.Items {
+			if vm.LifecycleState != core.InstanceLifecycleStateTerminated && vm.LifecycleState != core.InstanceLifecycleStateTerminating {
+			comp_path := GetPath( compartments, *vm.CompartmentId)
+			servers = append(servers, VM{strings.ToLower(*vm.DisplayName), *vm.Id, *vm.CompartmentId, cid.CompartmentName, comp_path, *vm.Region, string(vm.LifecycleState), cfg.Profile})
+                        log.Printf("machine added: %v comp:%v full:%v", strings.ToLower(*vm.DisplayName), cid.CompartmentName, comp_path)
 			}
+		  }
+		  if resp.OpcNextPage != nil { req.Page = resp.OpcNextPage } else { break }
+		  }
 		}
 	}
 	log.Printf("Number of Virtual Machines Found: %v", len(servers))
